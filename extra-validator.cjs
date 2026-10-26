@@ -1,0 +1,6 @@
+const fs=require('fs'),path=require('path'),cp=require('child_process');
+function extra(full,ext){if(ext==='.json'){try{JSON.parse(fs.readFileSync(full,'utf8').replace(/^\uFEFF/,''));return {ok:true};}catch{return {ok:false,line:null};}}
+if(['.ts','.tsx','.jsx'].includes(ext)){const ts=require('./validators/typescript.js'),kind=ext==='.tsx'?ts.ScriptKind.TSX:ext==='.jsx'?ts.ScriptKind.JSX:ts.ScriptKind.TS;const source=ts.createSourceFile(full,fs.readFileSync(full,'utf8'),ts.ScriptTarget.Latest,true,kind);const error=source.parseDiagnostics[0];return {ok:!error,line:error?source.getLineAndCharacterOfPosition(error.start||0).line+1:null};}
+if(ext==='.py'){const python=process.platform==='win32'?'py':'python3',args=process.platform==='win32'?['-3']:[];const code='import ast,sys,json\ntry:\n ast.parse(open(sys.argv[1],"rb").read(),filename="project.py"); print(json.dumps({"ok":True}))\nexcept SyntaxError as e:\n print(json.dumps({"ok":False,"line":e.lineno}))';const r=cp.spawnSync(python,[...args,'-I','-S','-c',code,full],{encoding:'utf8',timeout:5000,windowsHide:true,maxBuffer:5000});if(r.error||r.status!==0)return {unavailable:true};try{return JSON.parse(r.stdout);}catch{return {unavailable:true};}}return {unavailable:true};}
+module.exports=extra;
+

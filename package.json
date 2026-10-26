@@ -1,0 +1,22 @@
+{
+  "name": "project-control-center-desktop",
+  "productName": "Project Control Center",
+  "version": "1.0.0",
+  "description": "Local multi-project monitoring desktop application",
+  "author": "Project Control Center",
+  "license": "UNLICENSED",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/smoke.cjs",
+    "build": "node scripts/build.cjs"
+  },
+  "private": true,
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

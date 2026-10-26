@@ -1,0 +1,17 @@
+node_modules/
+dist/
+releases/
+*.zip
+*.exe
+*.log
+.env
+.env.*
+!.env.example
+projects.json
+settings.json
+.project-monitoring/
+*.initialization.lock
+*.initialization-*.tmp
+*.pcc-*.tmp
+.DS_Store
+Thumbs.db
