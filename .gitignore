@@ -9,6 +9,8 @@ releases/
 !.env.example
 projects.json
 settings.json
+ai-connection.json
+ai-conversations/
 .project-monitoring/
 *.initialization.lock
 *.initialization-*.tmp

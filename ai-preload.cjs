@@ -1,0 +1,1 @@
+const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('desktopAI',{enable:enabled=>ipcRenderer.invoke('ai-settings-enable',enabled),guide:()=>ipcRenderer.invoke('ai-guide'),settings:()=>ipcRenderer.invoke('ai-settings-get'),save:input=>ipcRenderer.invoke('ai-settings-save',input)});

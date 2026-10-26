@@ -1,6 +1,6 @@
 # Project Control Center
 
-A Windows desktop application for managing separate local software projects. Built with Electron and a local Node.js monitoring service. No cloud account or AI integration is required.
+A Windows desktop application for managing separate local software projects. Built with Electron and a local Node.js monitoring service. No cloud account is required. AI features are optional.
 
 ## Features
 
@@ -11,7 +11,7 @@ A Windows desktop application for managing separate local software projects. Bui
 - Searchable, paginated tables; clear history and restore the most recently cleared table.
 - Scan snapshots and error comparisons, project settings, backup and previewed restore.
 
-Syntax checks are limited checks, not functional tests, type checking, a security audit, or an overall software-quality rating. AI assistant integration is not implemented.
+Syntax checks are limited checks, not functional tests, type checking, a security audit, or an overall software-quality rating. An optional local AI assistant is included; see [AI setup](AI_SETUP.md). External Odysseus and Ollama services are not installed or bundled.
 
 ## Requirements
 
@@ -62,3 +62,55 @@ PHP can be selected in **Application → Select PHP executable**. Restart to app
 - No existing project registry, credentials, local monitoring history, or project source is shipped here.
 
 The root `.gitignore` prevents this application's local runtime data and build output from being committed. It does not edit any registered project's ignore rules or Git tracking.
+
+## Optional local AI assistant
+
+**AI is included in the standard desktop app, but disabled by default. You must install Ollama, Odysseus and a local model yourself to use it. Monitoring, tasks, scanning, backup and every non-AI feature work without them.** Nothing is installed or downloaded by enabling AI.
+
+The AI Assistant tab has a setup checklist, a built-in copy of the installation guide, an enable/disable switch, connection settings and a connection test. It supports project chat and drafts for tasks, suggestions and overview notes. Drafts need review and approval before saving. No code-editing, shell, web-research or Git permissions are provided.
+
+### Install the optional AI components on Windows
+
+1. Install [Ollama for Windows](https://ollama.com/download/windows) and leave it running. Its normal local address is `http://127.0.0.1:11434`. Allow several GB for the software and additional space for the model. [Official Windows instructions](https://docs.ollama.com/windows) explain moving model storage to another drive with `OLLAMA_MODELS`.
+2. Download a local model that fits the PC. One example is [qwen2.5-coder:7b](https://ollama.com/library/qwen2.5-coder:7b), approximately 4.7 GB for the listed compressed model, plus working memory and software. It is an example, not a performance guarantee. In a new terminal:
+
+   ```powershell
+   ollama pull qwen2.5-coder:7b
+   ollama list
+   ```
+
+3. Install **Python 3.11** and Git for the native Odysseus setup. In a separate directory outside your monitored projects, use the curated main branch:
+
+   ```powershell
+   git clone --branch main https://github.com/odysseus-dev/odysseus.git
+   cd odysseus
+   py -3.11 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   .\.venv\Scripts\python.exe setup.py
+   .\.venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 7000
+   ```
+
+   Follow the interactive setup and keep the service running. Refer to the [official Odysseus setup guide](https://github.com/odysseus-dev/odysseus/blob/main/website/setup.md#native-windows) if its dependencies or installation steps change. Docker is another installation option, but the host-model connection differs; see AI_SETUP.md.
+4. Open Odysseus at the address printed during startup, sign in, and configure its local model endpoint as `http://127.0.0.1:11434/v1` with the exact downloaded model name. Use a dedicated endpoint/account; disable tools, shared memory and cloud/model fallback. Create a **chat-scoped API token** in its settings. Keep the token private. Record the registered model endpoint ID if your account requires it.
+5. In this app, select a project → **AI Assistant**. Read the installation guide, turn on **Enable optional AI**, then open **Connection settings**. For the native example above use:
+
+   | Field | Value |
+   |---|---|
+   | Odysseus | `http://127.0.0.1:7000` |
+   | Ollama | `http://127.0.0.1:11434` |
+   | Model | `qwen2.5-coder:7b`, or the exact name you downloaded |
+   | Token | Your chat-only Odysseus API token |
+   | Endpoint ID | The saved Odysseus local endpoint ID, if required |
+
+6. Save, click **Test connection**, then preview and approve the selected project context before sending a short chat. The connection test checks service access/model availability; the first chat tests real generation. Both services must be running whenever AI is used. Turning AI off leaves monitoring operational and does not uninstall or stop your separately managed services.
+
+### Privacy, requirements and troubleshooting
+
+- The token uses Windows-protected encryption and is excluded from project records and backups. AI conversations live in application data separately from monitoring; Odysseus also stores its own sessions.
+- The app sends only the selected, previewed monitoring context and your message. It does not read project source for the assistant. Review the preview and never enter secrets or private customer data.
+- No response? Check that both services are running, the model appears in `ollama list`, the actual service ports match, and the token permits chat. HTTP 401/403 usually indicates authorization/configuration. A failed JSON draft can be retried or discussed in chat.
+- Local addresses only; this connector does not support LAN/cloud endpoints. Default service ports can differ across Odysseus installations.
+- This release returns the answer when generation completes. Stop waiting discards the pending answer; upstream computation may finish separately.
+- Integration tests use mock services; actual model behavior, speed and live Odysseus compatibility still need testing on the user's setup. The optional feature is included, but bundling it does not install or certify those external services.
+
+See [AI_SETUP.md](AI_SETUP.md) for the detailed privacy boundary, API contract and troubleshooting guide. A readable copy is included inside the app through **Read README / installation guide**.
