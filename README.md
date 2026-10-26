@@ -114,3 +114,7 @@ The AI Assistant tab has a setup checklist, a built-in copy of the installation 
 - Integration tests use mock services; actual model behavior, speed and live Odysseus compatibility still need testing on the user's setup. The optional feature is included, but bundling it does not install or certify those external services.
 
 See [AI_SETUP.md](AI_SETUP.md) for the detailed privacy boundary, API contract and troubleshooting guide. A readable copy is included inside the app through **Read README / installation guide**.
+
+## Desktop and browser feature parity
+
+Both editions use the same interface and monitoring/AI feature modules. Browser AI settings on Windows use DPAPI-protected storage; the desktop edition uses Electron safeStorage. Tokens are never returned by settings APIs. Each installation keeps its own registry and AI data: matching features does not merge or synchronize project records. Do not copy encrypted credential files between editions. AI remains optional and external services are still required.

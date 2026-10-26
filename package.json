@@ -8,7 +8,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "test": "node test/ai.cjs && node test/smoke.cjs",
+    "test": "node test/ai.cjs && node test/browser-credentials.cjs && node test/browser-service.cjs && node test/smoke.cjs",
     "build": "node scripts/build.cjs"
   },
   "private": true,
