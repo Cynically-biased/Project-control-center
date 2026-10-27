@@ -118,3 +118,9 @@ See [AI_SETUP.md](AI_SETUP.md) for the detailed privacy boundary, API contract a
 ## Desktop and browser feature parity
 
 Both editions use the same interface and monitoring/AI feature modules. Browser AI settings on Windows use DPAPI-protected storage; the desktop edition uses Electron safeStorage. Tokens are never returned by settings APIs. Each installation keeps its own registry and AI data: matching features does not merge or synchronize project records. Do not copy encrypted credential files between editions. AI remains optional and external services are still required.
+
+## AI Suggestions
+
+The AI Suggestions tab has a Generate suggestions button. Each successful click explicitly requests and saves exactly five distinct AI suggestions for the selected project. Scanning does not create preset suggestions. The button is available only after monitoring is set up, the project has been scanned, optional AI is enabled, and the configured Ollama model and Odysseus service are reachable. Install and configure the services using the AI setup instructions above; AI remains optional.
+
+Generation uses the latest saved scan, overview, findings, tasks, recent changes, validation summary, existing suggestions, and up to 150 safe inventoried file paths. It does not read application source or secrets. Context collections are bounded; this is not a complete code review. Rescan after changing files. AI advice can be wrong. Invalid or incomplete batches are rejected without adding partial suggestions. The Suggestions context checkbox has been removed from AI Assistant; existing suggestions are included automatically for this dedicated action to discourage repetition. Regular assistant drafts still require individual approval.
