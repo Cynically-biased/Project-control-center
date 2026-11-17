@@ -1,0 +1,1 @@
+Bundled Go, Rust, Java, C# and Ruby grammars from tree-sitter-wasms 0.1.13 (Unlicense). Runtime web-tree-sitter 0.24.7. Parser results are grammar diagnostics, not compiler, type, dependency or runtime verification. Newer language constructs may require updated grammars.

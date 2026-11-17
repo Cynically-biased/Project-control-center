@@ -1,0 +1,49 @@
+const fs=require('node:fs'),path=require('node:path'),net=require('node:net'),policy=require('./scan-policy.cjs');
+function run(p){
+ const root=p.path||p.folderPath,files=new Set((p.inventory||[]).map(f=>f.file.replaceAll('\\','/'))),date=p.lastScanned||new Date().toISOString();
+ p.tests=p.tests.filter(t=>t.origin!=='project-check');p.errors=p.errors.filter(t=>t.origin!=='project-check');
+ const add=(category,name,status,message,file='',severity='Medium')=>{const row={projectId:p.id,projectName:p.name,date,origin:'project-check',category,name,status,message,file};p.tests.push(row);if(status==='Failed')p.errors.push({...row,status:'Open',severity});};
+ const json=file=>JSON.parse(policy.read(root,file).replace(/^\uFEFF/,''));let database=false;
+ for(const manifest of ['package.json','composer.json'])if(files.has(manifest)){
+  let doc;try{doc=json(manifest);}catch{add('Dependencies',manifest+' structure','Not run','Manifest is invalid or cannot be inspected safely; see syntax results.',manifest);continue;}
+  const deps={...(manifest==='package.json'?doc.dependencies:doc.require),...(manifest==='package.json'?doc.devDependencies:doc['require-dev'])};
+  const names=Object.keys(deps).filter(n=>manifest==='package.json'?/^(?:@[a-zA-Z0-9._-]+\/)?[a-zA-Z0-9._-]+$/.test(n):/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(n));
+  database ||= names.some(n=>/(?:mysql|mariadb|postgres|^pg$|sqlite|prisma|sequelize|typeorm|mongoose|mongodb|doctrine)/i.test(n));
+  let missing=0;
+  for(const name of names.slice(0,300)){const dir=path.join(root,manifest==='package.json'?'node_modules':'vendor',...name.split('/'));if(!fs.existsSync(dir)){missing++;add('Dependencies','Missing dependency: '+name,'Failed','A declared package is not installed locally. Install dependencies using the project’s documented package manager.',manifest,'Medium');if(missing>=10)break;}}
+  // Names and versions are intentionally omitted from diagnostics; private registry addresses are never displayed.
+  if(!missing)add('Dependencies','Declared dependency installation',names.length?'Passed':'Not applicable',names.length?'Inspected declared dependency folders exist. Package code was not executed or audited.':'No supported external package declarations to inspect.',manifest);
+  const lock=manifest==='package.json'?'package-lock.json':'composer.lock';
+  if(files.has(lock))try{const data=json(lock);let incompatible=0;if(manifest==='package.json'){const semver=require('semver');for(const name of names.slice(0,300)){const version=data.packages?.['node_modules/'+name]?.version||data.dependencies?.[name]?.version;if(!version&&(data.packages||data.dependencies)&&!/^(?:file|link|workspace|git|https?):/.test(deps[name]))incompatible++;if(semver.validRange(deps[name])&&semver.valid(version)&&!semver.satisfies(version,deps[name],{includePrerelease:true}))incompatible++;}}else{const locked=new Set([...(data.packages||[]),...(data['packages-dev']||[])].map(v=>v.name));for(const name of names)if(!locked.has(name))incompatible++;}
+   add('Dependencies','Manifest / lockfile consistency',incompatible?'Failed':'Passed',incompatible?'Declared dependencies do not agree with the lockfile. Regenerate it using the project’s package manager.':'No checked declaration/locked-version conflicts found. This is not a full package-manager resolution.',lock);
+  }catch{add('Dependencies','Manifest / lockfile consistency','Not run','Lockfile could not be inspected safely; check its syntax.',lock);}
+  else add('Dependencies','Lockfile coverage','Not run','No supported inventoried lockfile found. Yarn/pnpm lock resolution is not evaluated.',manifest);
+  if(names.length>300)add('Coverage','Dependency check limit','Not run','Only the first 300 declarations were inspected.',manifest);
+ }
+ add('Dependencies','Dependency vulnerability audit','Not run','No vulnerability database was queried. Local installation checks do not establish dependency security.');
+ const migrations=[...files].filter(f=>/(^|\/)migrations?\//i.test(f));database ||= migrations.length>0;
+ add('Database','Database migration source',database?(migrations.length?'Passed':'Not run'):'Not applicable',database?(migrations.length?'Migration source files were inventoried. See individual syntax results; not every language is supported. Migration SQL, database contents, and applied migration state were not inspected.':'Database-related dependencies detected; no safe migration files were inventoried.'):'No supported database dependencies or inventoried migrations detected.');
+ add('Database','Database schema, authentication and queries','Not run','Database credentials, dumps and customer data are excluded. No connections or queries run automatically. Use the Database tab for an explicit local TCP reachability test.');
+ if(p.scanSummary?.submoduleBoundaries?.length)add('Coverage','Git submodule coverage','Not run','Git submodule contents are not traversed. Register each submodule folder as its own project to scan it independently.');
+ add('Coverage','Functional and integration tests','Not run','Test files can be discovered, but project test/build commands are not executed automatically because they may modify application or database data.');
+ for(const ext of ['.scss','.less'])if([...files].some(f=>f.endsWith(ext)))add('Coverage',ext+' compiler/preprocessor validation','Not run','Files are inventoried. This language requires a project-aware compiler or preprocessor; its build tools were not executed.');
+ if(p.validationEnabled!==false)typeChecks(p,add);else add('Code','Type checks','Not run','Syntax/type validation is disabled in project settings.');
+}
+function typeChecks(p,add){
+ const root=path.resolve(p.path||p.folderPath),all=(p.inventory||[]).filter(f=>/\.(?:ts|tsx)$/.test(f.file)&&!/(^|[\\/])(node_modules|vendor|dist|build|coverage)([\\/])/.test(f.file));if(!all.length)return;
+ const ts=require('typescript'),lib=path.dirname(require.resolve('typescript'));const sources=new Map();let bytes=0;
+ for(const f of all.slice(0,100)){try{const text=policy.read(root,f.file);bytes+=Buffer.byteLength(text);if(bytes>8*1024*1024)break;sources.set(path.resolve(root,f.file),text);}catch{}}
+ const options={noEmit:true,skipLibCheck:true,target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,jsx:ts.JsxEmit.Preserve,types:[],strict:false};
+ const host=ts.createCompilerHost(options),originalRead=host.readFile;const bundled=f=>{const full=path.resolve(f);return path.dirname(full)===lib&&/^lib[.\w-]*\.d\.ts$/.test(path.basename(full));};
+ host.readFile=f=>sources.get(path.resolve(f))??(bundled(f)?originalRead(f):undefined);host.fileExists=f=>sources.has(path.resolve(f))||(bundled(f)&&fs.existsSync(f));host.directoryExists=f=>path.resolve(f)===lib||[...sources.keys()].some(s=>s.startsWith(path.resolve(f)+path.sep));host.getSourceFile=(file,version)=>{const text=host.readFile(file);return text===undefined?undefined:ts.createSourceFile(file,text,version,true);};host.writeFile=()=>{throw Error('Emitting code is prohibited');};host.realpath=f=>path.resolve(f);
+ try{const program=ts.createProgram([...sources.keys()],options,host);const diagnostics=ts.getPreEmitDiagnostics(program);let count=0;for(const d of diagnostics){if(!d.file||!sources.has(path.resolve(d.file.fileName))||[2307,2688,2792,7016].includes(d.code))continue;const line=d.file.getLineAndCharacterOfPosition(d.start||0).line+1;add('Code','TypeScript type check','Failed','TypeScript reported TS'+d.code+' at line '+line+'. Check the types at that location; raw source and diagnostics are withheld.',path.relative(root,d.file.fileName),'High');if(++count>=30)break;}
+  add('Coverage','TypeScript type-check scope','Not run','Bounded type checks use bundled compiler defaults on up to 100 safe source files / 8 MB. Project plugins, inherited tsconfig, external dependency types and full framework builds are not loaded.');if(!count)add('Code','Bounded TypeScript type checks','Passed','No reported type conflicts within the limited check scope. External module resolution errors are excluded.');
+ }catch{add('Code','TypeScript type checks','Not run','The bounded compiler check could not complete.');}
+}
+async function localDatabase(p,input){
+ if(input.confirm!==true||!['127.0.0.1','localhost','::1'].includes(input.host)||!Number.isInteger(input.port)||input.port<1||input.port>65535)throw Error('Choose a loopback host and valid port; explicit confirmation is required');
+ const result=await new Promise(resolve=>{const socket=net.createConnection({host:input.host==='localhost'?'127.0.0.1':input.host,port:input.port});let ended=false;const done=ok=>{if(ended)return;ended=true;socket.destroy();resolve(ok);};socket.setTimeout(2500,()=>done(false));socket.once('connect',()=>done(true));socket.once('error',()=>done(false));});
+ const date=new Date().toISOString(),message=result?'A local process accepted the TCP connection. This does not verify database identity, authentication, schema or query behavior.':'No TCP connection could be established. Check that the local service is running and the port is correct.';
+ p.tests=p.tests.filter(t=>!(t.origin==='database-probe'&&t.port===input.port&&t.host===input.host));p.errors=p.errors.filter(t=>!(t.origin==='database-probe'&&t.port===input.port&&t.host===input.host));const row={projectId:p.id,projectName:p.name,date,origin:'database-probe',category:'Database',name:'Local service TCP reachability',status:result?'Passed':'Failed',message,host:input.host,port:input.port};p.tests.unshift(row);if(!result)p.errors.unshift({...row,status:'Open',severity:'Medium'});p.activity.unshift({...row,time:date,status:'Completed',message:'User requested a local database/service port reachability check.'});p._syncMonitoring=true;return {ok:true};
+}
+module.exports={run,localDatabase};

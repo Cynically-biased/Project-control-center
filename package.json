@@ -1,22 +1,36 @@
 {
   "name": "project-control-center-desktop",
   "productName": "Project Control Center",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Local multi-project monitoring desktop application",
   "author": "Project Control Center",
   "license": "UNLICENSED",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "test": "node test/performance.cjs && node test/ai.cjs && node test/browser-credentials.cjs && node test/browser-service.cjs && node test/smoke.cjs",
+    "test": "node test/checks.cjs && node test/performance.cjs && node test/ai.cjs && node test/browser-credentials.cjs && node test/browser-service.cjs && node test/smoke.cjs",
     "build": "node scripts/build.cjs"
   },
   "private": true,
   "devDependencies": {
     "@electron/packager": "^20.3.0",
-    "electron": "^45.0.0"
+    "electron": "^45.0.0",
+    "tree-sitter-wasms": "0.1.13"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@vue/compiler-sfc": "3.5.45",
+    "acorn": "8.19.0",
+    "fast-xml-parser": "5.12.0",
+    "html-validate": "11.21.0",
+    "postcss": "8.5.32",
+    "semver": "7.8.6",
+    "smol-toml": "1.9.1",
+    "svelte": "5.57.3",
+    "typescript": "6.0.3",
+    "web-tree-sitter": "0.24.7",
+    "yaml": "2.9.1"
   }
 }
